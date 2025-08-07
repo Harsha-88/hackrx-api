@@ -1,18 +1,24 @@
-# Build essentials
-pip>=25.2
+# Core tools
 setuptools>=68.2.2
 wheel>=0.42.0
 
+# FastAPI & Web Server
 fastapi==0.110.2
 uvicorn==0.29.0
+
+# Utils
 pydantic==1.10.13
 requests==2.31.0
 python-dotenv==1.0.1
-pdfplumber==0.10.3
-pinecone-client==3.2.2
 tqdm==4.66.4
 numpy==1.26.4
+
+# AI & PDF
+pdfplumber==0.10.3
 sentence-transformers==2.7.0
-huggingface_hub==0.15.1
 transformers==4.38.2
-torch==2.1.2       # ✅ fixed version to support transformers 4.38.2
+torch==2.0.1
+huggingface_hub==0.15.1
+
+# Vector DB
+pinecone-client==3.2.2
