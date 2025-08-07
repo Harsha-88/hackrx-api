@@ -3,16 +3,25 @@ pip>=25.2
 setuptools>=68.2.2
 wheel>=0.42.0
 
+# Core stack
 fastapi==0.110.2
 uvicorn==0.29.0
 pydantic==1.10.13
 requests==2.31.0
 python-dotenv==1.0.1
+
+# PDF processing
 pdfplumber==0.10.3
+
+# Pinecone vector DB
 pinecone-client==3.2.2
+
+# Utility
 tqdm==4.66.4
 numpy==1.26.4
+
+# ML & Embedding Stack
 sentence-transformers==2.7.0
-huggingface_hub==0.22.2          # ✅ FIXED: satisfies both dependencies
+huggingface_hub==0.22.2
 transformers==4.38.2
 torch==2.0.1
