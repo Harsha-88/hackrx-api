@@ -1,7 +1,9 @@
+# Build essentials
 pip>=25.2
 setuptools>=68.2.2
 wheel>=0.42.0
 
+# Core App
 fastapi==0.110.2
 uvicorn==0.29.0
 pydantic==1.10.13
