@@ -8,3 +8,8 @@ pinecone-client==3.2.2
 tqdm==4.66.4
 numpy==1.26.4
 sentence-transformers==2.7.0
+
+
+
+
+
