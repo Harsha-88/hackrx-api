@@ -48,5 +48,4 @@ def run_hackrx_query(request: QueryRequest):
         logging.error(f"❌ Internal Server Error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-app = FastAPI()
 
