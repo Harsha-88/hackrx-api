@@ -1,32 +1,3 @@
-# from fastapi import FastAPI, HTTPException
-# from fastapi.middleware.cors import CORSMiddleware
-# from pydantic import BaseModel
-# from typing import List
-# from query_handler import query_document
-
-# app = FastAPI()
-
-# # Enable CORS
-# app.add_middleware(
-#     CORSMiddleware,
-#     allow_origins=["*"],  # Restrict in production
-#     allow_credentials=True,
-#     allow_methods=["*"],
-#     allow_headers=["*"],
-# )
-
-# class HackRxRequest(BaseModel):
-#     documents: str
-#     questions: List[str]
-
-# @app.post("/hackrx/run")
-# def run_query(payload: HackRxRequest):
-#     try:
-#         answers = query_document(payload.documents, payload.questions)
-#         return {"answers": answers}
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=str(e))
-
 
 
 
