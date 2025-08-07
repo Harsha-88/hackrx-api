@@ -24,4 +24,4 @@ numpy==1.26.4
 sentence-transformers==2.7.0
 huggingface_hub==0.22.2
 transformers==4.38.2
-torch==2.0.1
+torch==2.1.2  
