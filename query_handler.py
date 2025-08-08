@@ -1,17 +1,13 @@
-
-
-
-
 import os
 import tempfile
 import requests
 import pdfplumber
-import numpy as np
 import re
+import numpy as np
 from dotenv import load_dotenv
-from sentence_transformers import SentenceTransformer
+from sentence_transformers import SentenceTransformer, util
 
-# ✅ Load environment variables
+# Load environment variables
 load_dotenv()
 HF_API_KEY = os.getenv("HF_API_KEY")
 HF_API_URL = "https://api-inference.huggingface.co/models/deepset/roberta-base-squad2"
@@ -24,11 +20,10 @@ HEADERS = {
     "Content-Type": "application/json"
 }
 
-# ✅ Sentence embedding model for semantic similarity
+# Sentence embedding model
 embedder = SentenceTransformer("thenlper/gte-small")
 
-
-# ✅ Extract and clean sentences from a PDF
+# ✅ Extract and clean sentences from PDF
 def extract_sentences_from_pdf(pdf_url: str):
     response = requests.get(pdf_url)
     if response.status_code != 200:
@@ -47,22 +42,20 @@ def extract_sentences_from_pdf(pdf_url: str):
 
     os.remove(tmp_path)
 
-    # Split into clean, informative sentences
+    # Split into clean sentences
     sentences = re.split(r'(?<=[.!?])\s+', text)
     clean_sentences = [s.strip() for s in sentences if len(s.strip()) > 30]
     return clean_sentences[:300]  # Limit for performance
 
-
-# ✅ Get the most relevant sentence as context
+# ✅ Find best context sentence for QA
 def get_best_context(question, sentences):
-    question_embedding = embedder.encode([question])[0]
-    sentence_embeddings = embedder.encode(sentences)
-    similarities = np.dot(sentence_embeddings, question_embedding)
-    best_index = int(np.argmax(similarities))
+    question_embedding = embedder.encode(question, convert_to_tensor=True)
+    sentence_embeddings = embedder.encode(sentences, convert_to_tensor=True)
+    similarities = util.pytorch_cos_sim(question_embedding, sentence_embeddings)[0]
+    best_index = int(similarities.argmax())
     return sentences[best_index]
 
-
-# ✅ Call Hugging Face QA model
+# ✅ Hugging Face QA call
 def ask_question(context: str, question: str) -> str:
     payload = {
         "inputs": {
@@ -70,7 +63,6 @@ def ask_question(context: str, question: str) -> str:
             "context": context
         }
     }
-
     try:
         response = requests.post(HF_API_URL, headers=HEADERS, json=payload, timeout=60)
         response.raise_for_status()
@@ -79,13 +71,18 @@ def ask_question(context: str, question: str) -> str:
     except Exception as e:
         return f"❌ Error during inference: {str(e)}"
 
-
-# ✅ Main function to handle a list of questions
+# ✅ Main query handler
 def run_query(request):
     try:
         sentences = extract_sentences_from_pdf(request.documents)
-        answers = []
+        
+        if not sentences:
+            return {
+                "status": "error",
+                "message": "No sentences extracted from the PDF."
+            }
 
+        answers = []
         for question in request.questions:
             context = get_best_context(question, sentences)
             answer = ask_question(context, question)
