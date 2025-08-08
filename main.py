@@ -116,6 +116,12 @@
 
 
 
+
+
+
+
+
+
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -134,35 +140,34 @@ load_dotenv()
 PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
 PINECONE_INDEX_NAME = os.getenv("PINECONE_INDEX_NAME")
 
-# Logging
 logging.basicConfig(level=logging.INFO)
 
-# FastAPI app
 app = FastAPI(
     title="PDF Query API",
     description="Upload PDFs and ask questions with HuggingFace models + Pinecone",
     version="1.0.0"
 )
 
-# CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 🔐 Lock to specific domains in production
+    allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Pinecone init
+# Initialize Pinecone
 pc = Pinecone(api_key=PINECONE_API_KEY)
 index = pc.Index(PINECONE_INDEX_NAME)
 
-# Load sentence transformer model
+# Load model
 model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
-
 
 class QueryInput(BaseModel):
     question: str
 
+@app.get("/")
+def root():
+    return {"message": "🚀 API is live and running!"}
 
 @app.post("/upload")
 async def upload_pdf(file: UploadFile = File(...)):
@@ -183,7 +188,6 @@ async def upload_pdf(file: UploadFile = File(...)):
         if not text.strip():
             raise HTTPException(status_code=400, detail="No text extracted from PDF.")
 
-        # Basic chunking
         chunks = text.split("\n\n")
         embeddings = model.encode(chunks).tolist()
 
@@ -206,7 +210,6 @@ async def upload_pdf(file: UploadFile = File(...)):
 def ask_question(query: QueryInput):
     try:
         question_embedding = model.encode(query.question).tolist()
-
         search_result = index.query(
             vector=question_embedding,
             top_k=5,
@@ -222,9 +225,4 @@ def ask_question(query: QueryInput):
     except Exception as e:
         logging.exception("Error while querying")
         raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.get("/")
-def root():
-    return {"message": "🚀 API is live and running!"}
 
