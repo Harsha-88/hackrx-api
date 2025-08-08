@@ -20,8 +20,7 @@ pinecone-client==3.2.2
 tqdm==4.66.4
 numpy==1.26.4
 
-# ML & Embedding Stack
-sentence-transformers==2.7.0
-huggingface_hub==0.22.2
-transformers==4.38.2
-torch==2.1.2  
+# ML stack
+sentence-transformers==2.6.1
+transformers==4.31.0
+torch==2.0.1
