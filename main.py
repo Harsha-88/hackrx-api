@@ -1,112 +1,81 @@
-import os
-import requests
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import pdfplumber
 import tempfile
+import os
+import requests
+from uuid import uuid4
+from dotenv import load_dotenv
+from pinecone import Pinecone
+from sentence_transformers import SentenceTransformer, util
 
-# HuggingFace API setup
-HUGGINGFACE_API_URL = "https://api-inference.huggingface.co/pipeline/feature-extraction/sentence-transformers/all-MiniLM-L6-v2"
-HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY")
+# Load environment variables
+load_dotenv()
 
-# FastAPI app setup
-app = FastAPI(title="HackRX Query API", version="1.0")
+PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
+PINECONE_ENV = os.getenv("PINECONE_ENVIRONMENT")
+PINECONE_INDEX_NAME = os.getenv("PINECONE_INDEX_NAME")
 
-# Allow CORS
+# Initialize FastAPI app
+app = FastAPI()
+
+# Allow Swagger UI and other frontend tools
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Data models
-class UploadRequest(BaseModel):
-    documents: str  # PDF URL
+# Initialize Pinecone and model
+pc = Pinecone(api_key=PINECONE_API_KEY)
+index = pc.Index(PINECONE_INDEX_NAME)
 
-class QueryRequest(BaseModel):
-    query: str
-
-# Memory (Simple in-memory DB)
-pdf_text = ""
-
-# Route to upload and embed PDF
-@app.post("/hackrx/run")
-def upload_pdf(req: UploadRequest):
-    global pdf_text
-
-    pdf_url = req.documents
-    try:
-        # Download PDF from URL
-        response = requests.get(pdf_url)
-        if response.status_code != 200:
-            raise HTTPException(status_code=400, detail="Invalid PDF URL.")
-
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
-            tmp_file.write(response.content)
-            tmp_file_path = tmp_file.name
-
-        # Extract text using pdfplumber
-        with pdfplumber.open(tmp_file_path) as pdf:
-            text = ""
-            for page in pdf.pages:
-                text += page.extract_text() or ""
-        
-        if not text.strip():
-            raise HTTPException(status_code=400, detail="No text found in PDF.")
-
-        pdf_text = text
-        return {"message": "PDF uploaded and text extracted successfully."}
-    
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
 
 
-# Route to query uploaded PDF
-@app.post("/hackrx/query")
-def query_pdf(req: QueryRequest):
-    global pdf_text
-
-    if not pdf_text:
-        raise HTTPException(status_code=400, detail="No PDF uploaded yet.")
-
-    query = req.query
-
-    try:
-        # Call Hugging Face API for embedding
-        headers = {"Authorization": f"Bearer {HUGGINGFACE_API_KEY}"}
-        hf_payload = {
-            "inputs": [query, pdf_text],
-        }
-
-        response = requests.post(HUGGINGFACE_API_URL, headers=headers, json=hf_payload)
-        if response.status_code != 200:
-            raise HTTPException(status_code=500, detail="Embedding API failed.")
-
-        embeddings = response.json()
-        query_embedding = embeddings[0]
-        doc_embedding = embeddings[1]
-
-        # Cosine similarity
-        from numpy import dot
-        from numpy.linalg import norm
-
-        sim = dot(query_embedding, doc_embedding) / (norm(query_embedding) * norm(doc_embedding))
-        match = "Yes" if sim > 0.75 else "No"
-
-        return {
-            "matched": match,
-            "similarity_score": round(sim, 2),
-            "extracted_text": pdf_text[:300] + "...",
-        }
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+class QueryInput(BaseModel):
+    question: str
 
 
-# Health check
+@app.post("/upload")
+async def upload_pdf(file: UploadFile = File(...)):
+    with tempfile.NamedTemporaryFile(delete=False) as tmp:
+        tmp.write(await file.read())
+        tmp_path = tmp.name
+
+    text = ""
+    with pdfplumber.open(tmp_path) as pdf:
+        for page in pdf.pages:
+            text += page.extract_text() + "\n"
+
+    os.remove(tmp_path)
+
+    chunks = text.split("\n\n")  # Simple chunking
+    embeddings = model.encode(chunks).tolist()
+
+    ids = [str(uuid4()) for _ in chunks]
+    to_upsert = list(zip(ids, embeddings, [{"text": c} for c in chunks]))
+    index.upsert(vectors=to_upsert)
+
+    return {"message": "PDF uploaded and embedded successfully.", "chunks": len(chunks)}
+
+
+@app.post("/query")
+def ask_question(query: QueryInput):
+    question = query.question
+    question_embedding = model.encode(question).tolist()
+
+    search_result = index.query(vector=question_embedding, top_k=5, include_metadata=True)
+    answers = [match['metadata']['text'] for match in search_result['matches']]
+
+    return {
+        "question": question,
+        "answers": answers
+    }
+
+
 @app.get("/")
-def read_root():
-    return {"status": "API is live!"}
+def home():
+    return {"message": "API is running!"}
