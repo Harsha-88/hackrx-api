@@ -101,18 +101,43 @@ def root():
     return {"message": "🚀 HackRX Query API is running."}
 
 # Main POST endpoint
+# @app.post("/hackrx/run", response_model=Dict[str, Any])
+# def run_hackrx_query(request: QueryRequest):
+#     try:
+#         logging.info("🔵 /hackrx/run API Called!")
+#         logging.info(f"📄 Input Data: {request.model_dump()}")  # ✅ Works for Pydantic v2
+
+#         result = run_query(request)  # Ensure run_query is implemented in query_handler.py
+
+#         logging.info("✅ Query Handled Successfully.")
+#         return {"status": "success", "data": result}
+
+#     except Exception as e:
+#         logging.exception("❌ Internal Server Error")
+#         raise HTTPException(status_code=500, detail=str(e))
+
+
+
+
+
+
+
+# Main POST endpoint
 @app.post("/hackrx/run", response_model=Dict[str, Any])
 def run_hackrx_query(request: QueryRequest):
     try:
         logging.info("🔵 /hackrx/run API Called!")
-        logging.info(f"📄 Input Data: {request.model_dump()}")  # ✅ Works for Pydantic v2
+        logging.info(f"📄 Input Data: {request.model_dump()}")
 
-        result = run_query(request)  # Ensure run_query is implemented in query_handler.py
+        result = run_query(request)
 
         logging.info("✅ Query Handled Successfully.")
-        return {"status": "success", "data": result}
+
+        # 🔥 FIXED: Directly return the result from run_query
+        return result
 
     except Exception as e:
         logging.exception("❌ Internal Server Error")
         raise HTTPException(status_code=500, detail=str(e))
+
 
